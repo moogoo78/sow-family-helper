@@ -1,0 +1,31 @@
+__pycache__/
+*.pyc
+*.log
+.env
+
+# Contains the password hash and member PII (names, birthdays, etc.) —
+# supplied on the host, not committed.
+north7.sqlite
+north7.sqlite.bak-*
+
+# Roster exports -- same member PII as the DB.
+*.csv
+*.xlsx
+source/
+
+# Notes that quote the roster (自然名、姓名) -- kept on the host only.
+*.private.md
+
+# 名冊匯入與資料修復的 script：裡面直接寫著真的姓名、自然名、生日與家族名
+# （拆分同自然名的人、合併重複資料都要逐筆列出來），跟 north7.sqlite 一樣
+# 只留在 host 上。set_password.py 與 normalize_training_names.py 沒有個資，
+# 留在 repo 裡。
+scripts/import_n7_10.py
+scripts/fix_nickname_merges.py
+scripts/merge_duplicate_people.py
+scripts/merge_duplicate_families.py
+scripts/restore_none_role_rows.py
+scripts/split_shared_nicknames.py
+
+# Saved stashes / WIP patches -- host only.
+*.private.patch

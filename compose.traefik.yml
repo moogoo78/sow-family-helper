@@ -1,0 +1,32 @@
+# Traefik override — for a host that already runs a Traefik reverse proxy
+# (e.g. the galaxy-catalog stack on this box). Traefik reaches the app over
+# the shared external network and terminates TLS; no host port is needed.
+#
+# Usage on that host (with a .env providing SOW_HOST + SOW_DB_FILE):
+#   docker compose -f docker-compose.yml -f compose.traefik.yml up -d --build
+#
+# The external network below is the network Traefik watches. Change it if your
+# Traefik lives elsewhere:  docker inspect <traefik-container> -f \
+#   '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+services:
+  app:
+    # Marks this as the real deployment: without it the server prefixes the
+    # page title with "dev | " so a local instance is obvious at a glance.
+    environment:
+      SOW_ENV: production
+    networks:
+      - default
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      # Which shared network Traefik should use to reach this container.
+      - "traefik.docker.network=galaxy-catalog_default"
+      - "traefik.http.routers.sowfamily.rule=Host(`${SOW_HOST}`)"
+      - "traefik.http.routers.sowfamily.entrypoints=websecure"
+      - "traefik.http.routers.sowfamily.tls.certresolver=myresolver"
+      - "traefik.http.services.sowfamily.loadbalancer.server.port=8000"
+
+networks:
+  traefik:
+    name: galaxy-catalog_default
+    external: true

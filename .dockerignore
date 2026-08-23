@@ -1,0 +1,22 @@
+# Keep the build context small and the image clean.
+__pycache__/
+*.pyc
+.git/
+.gitignore
+
+# The DB holds the password hash and member PII; mount at runtime, don't bake in.
+north7.sqlite
+
+*.log
+
+# Data-repair scripts spell out real 姓名/自然名/生日 (same PII as the DB) and
+# are only ever run on the host — the image needs scripts/set_password.py.
+scripts/import_n7_10.py
+scripts/fix_nickname_merges.py
+scripts/merge_duplicate_people.py
+scripts/merge_duplicate_families.py
+scripts/restore_none_role_rows.py
+scripts/split_shared_nicknames.py
+
+# Host-only notes that quote the roster.
+*.private.md

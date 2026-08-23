@@ -1,0 +1,15 @@
+# Production run config. Build + run with:  docker compose up -d --build
+# north7.sqlite is mounted read-write from the host (the login password lives
+# in a `settings` table inside it, written by scripts/set_password.py), so
+# you can update data or rotate the password without rebuilding the image.
+services:
+  app:
+    build: .
+    image: sow-family-helper
+    container_name: sow-family-helper
+    restart: unless-stopped
+    # Bind to localhost; front it with your own reverse proxy (see DEPLOY.md).
+    ports:
+      - "127.0.0.1:8010:8000"
+    volumes:
+      - ${SOW_DB_FILE:-./north7.sqlite}:/app/north7.sqlite
