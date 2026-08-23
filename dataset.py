@@ -255,6 +255,9 @@ def build_members(con):
                         "name": other["name"],
                         "nickname": other["nickname"],
                         "relation": relation_label(other["sex"], other["is_child"]),
+                        # 今年在哪一團 -- None for anyone with no role_log row
+                        # this year (a parent who is not 育成, someone who left).
+                        "current_group": current_group_by_person.get(row["person_id"]),
                     }
                 )
         elif p["family_name"]:

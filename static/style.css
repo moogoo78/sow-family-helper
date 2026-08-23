@@ -515,6 +515,15 @@ html, body {
   flex-shrink: 0;
 }
 
+/* 家庭成員今年的分團．職務，靠右對齊 */
+.family-member .member-group {
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-align: right;
+}
+
 .log-row {
   padding: 8px 0;
   border-top: 1px solid var(--border);

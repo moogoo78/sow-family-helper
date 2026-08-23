@@ -52,6 +52,14 @@
     return label.length === 1 ? `${label}團` : label;
   }
 
+  // 蟻團・小蟻 -- the 職務 is dropped when there isn't one, or when it just
+  // repeats the group name (育成's plain members would read 育成・育成).
+  function groupText(group) {
+    const name = groupDisplayName(group.label);
+    if (!group.role || group.role === group.label) return name;
+    return `${name}・${group.role}`;
+  }
+
   async function loadMembers() {
     const res = await fetch("/api/members");
     if (res.status === 401) {
@@ -278,7 +286,7 @@
       return fam ? `${fam}・${left}` : left;
     }
     if (p.current_group) {
-      return `${groupDisplayName(p.current_group.label)}・${p.current_group.role || ""}`;
+      return groupText(p.current_group);
     }
     return (p.family && p.family.name) || "";
   }
@@ -483,7 +491,7 @@
     }
     if (person.current_group) {
       const cg = person.current_group;
-      rows.push(`<div class="field-row"><span class="label">分團</span><span>${escapeHtml(groupDisplayName(cg.label))}・${escapeHtml(cg.role || "")}</span></div>`);
+      rows.push(`<div class="field-row"><span class="label">分團</span><span>${escapeHtml(groupText(cg))}</span></div>`);
     }
     if (person.active === false) {
       const left = person.last_th_year ? `第 ${person.last_th_year} 年離團` : "已離團";
@@ -508,13 +516,19 @@
   function renderFamily(person) {
     if (!person.family) return "";
     const members = person.family_members
-      .map(
-        (m) => `
+      .map((m) => {
+        // 今年的分團．職務，跟在名字後面。沒有今年紀錄的人就不顯示。
+        const cg = m.current_group;
+        const group = cg
+          ? `<span class="member-group">${escapeHtml(groupText(cg))}</span>`
+          : "";
+        return `
         <div class="family-member" data-id="${m.id}">
           <span class="relation">${escapeHtml(m.relation)}</span>
           <span class="nickname">${escapeHtml(m.nickname || "")}</span>
-        </div>`
-      )
+          ${group}
+        </div>`;
+      })
       .join("");
     return `
       <div class="section">
