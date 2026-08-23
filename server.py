@@ -197,6 +197,7 @@ class Handler(BaseHTTPRequestHandler):
                     self._send_json(401, {"error": "unauthorized"})
                     return
                 people = dataset.build_members(con)
+                leaders = dataset.build_leaders(con)
                 current_th_year = dataset.get_current_th_year(con)
                 group_label = dataset.get_group_label(con)
             finally:
@@ -204,6 +205,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {
                 "ok": True,
                 "people": people,
+                "leaders": leaders,
                 "groups": dataset.group_list(),
                 "current_th_year": current_th_year,
                 "group_label": group_label,

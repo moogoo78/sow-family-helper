@@ -16,6 +16,9 @@
   --fam-text: #8d4459;
   /* 培訓名單上已離團的人 */
   --former-text: #8b6f5c;
+  --lead-card-bg: #f6f1e6;
+  --lead-border: #ddd0b4;
+  --lead-text: #7a6230;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -36,6 +39,9 @@
     --fam-border: #513740;
     --fam-text: #dda6b4;
     --former-text: #c0a08a;
+    --lead-card-bg: #2b2820;
+    --lead-border: #4d452f;
+    --lead-text: #d8c18a;
   }
 }
 
@@ -246,6 +252,15 @@ html, body {
 
 .group-card-fam .group-name { color: var(--fam-text); }
 .group-card-fam .group-counts { color: var(--fam-text); opacity: 0.8; }
+
+/* 歷年團會長 -- 第三種顏色，不跟培訓紀錄或新家庭混在一起 */
+.group-card-lead {
+  background: var(--lead-card-bg);
+  border-color: var(--lead-border);
+}
+
+.group-card-lead .group-name { color: var(--lead-text); }
+.group-card-lead .group-counts { color: var(--lead-text); opacity: 0.8; }
 
 /* 上過X基 summary cards, tinted with the same 團 colours as the gantt */
 .base-card {
@@ -514,6 +529,50 @@ html, body {
   border-radius: 999px;
   flex-shrink: 0;
 }
+
+/* 歷年團會長：一列一位，左邊那條是該團的顏色（同甘特圖） */
+.leader-year {
+  margin: 18px 0 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.leader-year:first-of-type { margin-top: 8px; }
+
+.leader-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--text-muted);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.leader-row .role {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  min-width: 5em;
+}
+
+/* 已經離團、名單上查不到的人：不是連結 */
+.leader-row.unlinked {
+  cursor: default;
+}
+
+.leader-row.unlinked .nickname { color: var(--text-muted); }
+
+.leader-row.leader-cross { border-left-color: var(--accent); }
+.leader-row.g-a { border-left-color: var(--g-a); }
+.leader-row.g-b { border-left-color: var(--g-b); }
+.leader-row.g-c { border-left-color: var(--g-c); }
+.leader-row.g-d { border-left-color: var(--g-d); }
+.leader-row.g-e { border-left-color: var(--g-e); }
 
 /* 家庭成員今年的分團．職務，靠右對齊 */
 .family-member .member-group {

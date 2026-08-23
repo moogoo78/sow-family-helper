@@ -101,6 +101,84 @@ def group_list():
     return [{"code": code, "label": GROUP_LABELS[code]} for code in GROUP_ORDER]
 
 
+# 歷年團會長. The wording drifts year to year -- 蟻團長/蟻團團長,
+# 育成會長/育會長/育成會會長/育成(會長) -- so a row is recognised by containing
+# 團長 or 會長 without 副 (which would make it a 副團長/副會長), and the title
+# shown is rebuilt from the 團 rather than printed as stored. 組長/器材長 don't
+# match either half, so they stay out on their own.
+CROSS_GROUP_LEADER = "複式團長"
+
+
+def leader_group(group_name, role):
+    """The 團 a 團長/會長 row leads, or None for the 複式團長 over all of them."""
+    if "複式" in role:
+        return None
+    if "會長" in role:
+        return "C"
+    if group_name in GROUP_LABELS:
+        return group_name
+    # Seven 複式團長 rows carry no group_name; anything else without one is
+    # matched on the 團 character the role starts with (蟻團長 -> A).
+    for code, label in GROUP_LABELS.items():
+        if role.startswith(label):
+            return code
+    return None
+
+
+def leader_title(code):
+    if code is None:
+        return CROSS_GROUP_LEADER
+    if code == "C":
+        return "育成會長"
+    return f"{GROUP_LABELS.get(code, code)}團長"
+
+
+def build_leaders(con):
+    """歷年團會長 -- who led each 團 each year, newest year first.
+
+    Deduplicated on (年度, 團, 自然名): the same post is sometimes recorded
+    twice in one year under two spellings of the role (both 蟻團長 and 蟻團團長
+    on one person), and on 自然名 rather than person_id because a leader can
+    still be sitting in the DB as two person rows. Two different people in one
+    year and 團 are both kept -- year 1 really did have two 蟻團團長.
+
+    Every leader is listed, including the handful who left long ago and are
+    not in the member payload; the frontend links only the ones it can find.
+    """
+    by_year = {}
+    seen = set()
+    for row in con.execute(
+        "SELECT rl.th_year, rl.group_name, rl.role, rl.person_id, p.nickname "
+        "FROM role_log rl JOIN person p ON p.id = rl.person_id"
+    ):
+        role = row["role"] or ""
+        if "副" in role or ("團長" not in role and "會長" not in role):
+            continue
+        code = leader_group(row["group_name"], role)
+        key = (row["th_year"], code, row["nickname"])
+        if key in seen:
+            continue
+        seen.add(key)
+        by_year.setdefault(row["th_year"], []).append(
+            {
+                "code": code,
+                "title": leader_title(code),
+                "person_id": row["person_id"],
+                "nickname": row["nickname"],
+            }
+        )
+
+    # 複式團長 first, then the 團 in display order (蟻蜂鹿育鷹).
+    rank = {code: i for i, code in enumerate(GROUP_ORDER)}
+    return [
+        {
+            "th_year": year,
+            "leaders": sorted(by_year[year], key=lambda e: rank.get(e["code"], -1)),
+        }
+        for year in sorted(by_year, reverse=True)
+    ]
+
+
 def connect():
     con = sqlite3.connect(DB_PATH)
     con.row_factory = sqlite3.Row

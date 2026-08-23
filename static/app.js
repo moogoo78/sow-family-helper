@@ -24,6 +24,8 @@
   let newFamilyList = false;
   let currentThYear = null;
   let trainingList = false;
+  let leaders = [];
+  let leaderList = false;
 
   const CONTACT_LABELS = {
     mobile: "手機",
@@ -71,6 +73,7 @@
     people = data.people || [];
     byId = new Map(people.map((p) => [p.id, p]));
     groups = data.groups || [];
+    leaders = data.leaders || [];
     currentThYear = data.current_th_year || null;
     selectedGroup = null;
     selectedCategory = null;
@@ -79,6 +82,7 @@
     selectedFamily = null;
     newFamilyList = false;
     trainingList = false;
+    leaderList = false;
     hide(loginScreen);
     show(appScreen);
     renderHome();
@@ -171,6 +175,13 @@
       resultsEl.innerHTML += `
         <div class="group-card group-card-fam" data-view="newfamilies">
           <span class="group-name">${currentThYear} 年新家庭</span>
+        </div>`;
+    }
+    if (leaders.length) {
+      resultsEl.innerHTML += `
+        <div class="group-card group-card-lead" data-view="leaders">
+          <span class="group-name">歷年團會長</span>
+          <span class="group-counts">第 1 - ${currentThYear} 年</span>
         </div>`;
     }
   }
@@ -352,6 +363,32 @@
       </div>`;
   }
 
+  // 歷年團會長：一年一段，複式團長在最前面。人還在名單上的才點得進去
+  // (一開始那幾年的團長有些已經離團，dataset.py 還是會送過來)。
+  function renderLeaderList() {
+    const years = leaders
+      .map((y) => {
+        const rows = y.leaders
+          .map((l) => {
+            const known = byId.has(l.person_id);
+            const cls = `leader-row ${l.code ? `g-${l.code.toLowerCase()}` : "leader-cross"}`;
+            const id = known ? ` data-id="${l.person_id}"` : "";
+            return `
+              <div class="${cls}${known ? "" : " unlinked"}"${id}>
+                <span class="role">${escapeHtml(l.title)}</span>
+                <span class="nickname">${escapeHtml(l.nickname || "")}</span>
+              </div>`;
+          })
+          .join("");
+        return `<h3 class="leader-year">第 ${y.th_year} 年</h3>${rows}`;
+      })
+      .join("");
+    resultsEl.innerHTML = `
+      <div class="group-back" data-to="home">&larr; 所有分團</div>
+      <h2 class="group-title">歷年團會長</h2>
+      ${years || '<div class="empty-state">沒有團會長紀錄</div>'}`;
+  }
+
   function renderTrainingList() {
     const index = trainingIndex();
     // numeric: true so 北鹿6基 comes before 北鹿12基 rather than after it.
@@ -419,6 +456,8 @@
       renderNewFamilyList();
     } else if (trainingList) {
       renderTrainingList();
+    } else if (leaderList) {
+      renderLeaderList();
     } else if (selectedGroup && selectedCategory) {
       renderCategoryMembers(selectedGroup, selectedCategory);
     } else if (selectedGroup) {
@@ -433,6 +472,7 @@
     if (card) {
       if (card.dataset.view === "trainings") trainingList = true;
       else if (card.dataset.view === "newfamilies") newFamilyList = true;
+      else if (card.dataset.view === "leaders") leaderList = true;
       else if (card.dataset.family) selectedFamily = card.dataset.family;
       else if (card.dataset.base) selectedBase = card.dataset.base;
       else if (card.dataset.training) selectedTraining = card.dataset.training;
@@ -458,8 +498,14 @@
         selectedFamily = null;
         newFamilyList = false;
         trainingList = false;
+        leaderList = false;
       }
       renderHome();
+      return;
+    }
+    const leader = e.target.closest(".leader-row[data-id]");
+    if (leader) {
+      openDetail(Number(leader.dataset.id));
       return;
     }
     const item = e.target.closest(".result-item");
@@ -682,6 +728,8 @@
     people = [];
     byId = new Map();
     groups = [];
+    leaders = [];
+    leaderList = false;
     selectedGroup = null;
     selectedCategory = null;
     selectedTraining = null;
