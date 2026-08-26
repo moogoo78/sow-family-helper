@@ -31,6 +31,12 @@ import dataset
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 SESSION_COOKIE = "sow_session"
 SESSION_MAX_AGE = 400 * 24 * 3600  # ~400 days: "remember this device"
+# Admin sessions see contact details the shared password does not (email), so
+# they are not remembered for a year -- and this doubles as the only way to
+# revoke one, since changing the admin password leaves member logins alone.
+ADMIN_SESSION_MAX_AGE = 30 * 24 * 3600
+ROLE_MEMBER = "member"
+ROLE_ADMIN = "admin"
 LOGIN_RATE_LIMIT = 8
 LOGIN_RATE_WINDOW = 600  # seconds
 PBKDF2_ITERATIONS = 310_000  # must match scripts/set_password.py
@@ -60,9 +66,9 @@ def get_setting(con, key):
     return row[0] if row else None
 
 
-def check_password(con, password):
-    salt_hex = get_setting(con, "password_salt")
-    stored_hash = get_setting(con, "password_hash")
+def password_matches(con, password, prefix):
+    salt_hex = get_setting(con, f"{prefix}password_salt")
+    stored_hash = get_setting(con, f"{prefix}password_hash")
     if not salt_hex or not stored_hash:
         return False
     salt = bytes.fromhex(salt_hex)
@@ -70,25 +76,50 @@ def check_password(con, password):
     return hmac.compare_digest(candidate, stored_hash)
 
 
-def make_session_token(secret, now):
-    expiry = int(now) + SESSION_MAX_AGE
-    payload = str(expiry)
+def check_password(con, password):
+    """Which login this password is, or None.
+
+    One field, two passwords: the shared one everybody has, and an optional
+    admin one (set with `set_password.py --admin`) that unlocks the extra
+    contact details. The admin password is tried first, and set_password.py
+    refuses to make the two the same.
+    """
+    if password_matches(con, password, "admin_"):
+        return ROLE_ADMIN
+    if password_matches(con, password, ""):
+        return ROLE_MEMBER
+    return None
+
+
+def session_max_age(role):
+    return ADMIN_SESSION_MAX_AGE if role == ROLE_ADMIN else SESSION_MAX_AGE
+
+
+def make_session_token(secret, now, role=ROLE_MEMBER):
+    expiry = int(now) + session_max_age(role)
+    # A member payload stays the bare expiry it has always been, so cookies
+    # issued before admin logins existed keep working.
+    payload = f"{expiry}:{ROLE_ADMIN}" if role == ROLE_ADMIN else str(expiry)
     sig = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
     return f"{payload}.{sig}"
 
 
-def verify_session_token(secret, token, now):
+def session_role(secret, token, now):
+    """The role a cookie proves, or None if it is missing/forged/expired."""
     if not token or "." not in token:
-        return False
+        return None
     payload, _, sig = token.partition(".")
     expected = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(sig, expected):
-        return False
+        return None
+    expiry_text, _, role = payload.partition(":")
     try:
-        expiry = int(payload)
+        expiry = int(expiry_text)
     except ValueError:
-        return False
-    return now < expiry
+        return None
+    if now >= expiry:
+        return None
+    return ROLE_ADMIN if role == ROLE_ADMIN else ROLE_MEMBER
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -113,12 +144,12 @@ class Handler(BaseHTTPRequestHandler):
         morsel = jar.get(SESSION_COOKIE)
         return morsel.value if morsel else None
 
-    def _is_authenticated(self, con):
+    def _session_role(self, con):
         secret = get_setting(con, "session_secret")
         if not secret:
-            return False
+            return None
         token = self._session_cookie_value()
-        return verify_session_token(secret, token, time.time())
+        return session_role(secret, token, time.time())
 
     def _set_session_cookie(self, value, max_age):
         parts = [f"{SESSION_COOKIE}={value}", "Path=/", "HttpOnly", "SameSite=Lax", f"Max-Age={max_age}"]
@@ -193,10 +224,12 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/members":
             con = dataset.connect()
             try:
-                if not self._is_authenticated(con):
+                role = self._session_role(con)
+                if role is None:
                     self._send_json(401, {"error": "unauthorized"})
                     return
-                people = dataset.build_members(con)
+                is_admin = role == ROLE_ADMIN
+                people = dataset.build_members(con, is_admin=is_admin)
                 leaders = dataset.build_leaders(con)
                 current_th_year = dataset.get_current_th_year(con)
                 group_label = dataset.get_group_label(con)
@@ -209,6 +242,7 @@ class Handler(BaseHTTPRequestHandler):
                 "groups": dataset.group_list(),
                 "current_th_year": current_th_year,
                 "group_label": group_label,
+                "is_admin": is_admin,
             })
             return
         self._serve_static(self.path)
@@ -227,14 +261,19 @@ class Handler(BaseHTTPRequestHandler):
             password = body.get("password", "")
             con = dataset.connect()
             try:
-                if not password or not check_password(con, password):
+                role = check_password(con, password) if password else None
+                if role is None:
                     self._send_json(401, {"error": "invalid password"})
                     return
                 secret = get_setting(con, "session_secret")
             finally:
                 con.close()
-            token = make_session_token(secret, time.time())
-            self._send_json(200, {"ok": True}, extra_headers=[self._set_session_cookie(token, SESSION_MAX_AGE)])
+            token = make_session_token(secret, time.time(), role)
+            self._send_json(
+                200,
+                {"ok": True, "is_admin": role == ROLE_ADMIN},
+                extra_headers=[self._set_session_cookie(token, session_max_age(role))],
+            )
             return
         if self.path == "/api/logout":
             self._send_json(200, {"ok": True}, extra_headers=[self._set_session_cookie("", 0)])

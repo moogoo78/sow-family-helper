@@ -30,10 +30,13 @@
   const CONTACT_LABELS = {
     mobile: "手機",
     phone: "市話",
+    // Email 只有用管理密碼登入時才會出現在 payload 裡（見 server.py），
+    // 一般登入拿到的資料根本沒有這個欄位，這裡也就不用另外判斷。
+    email: "Email",
     line_id: "LINE",
     address: "地址",
   };
-  const CONTACT_LINKS = { mobile: "tel", phone: "tel" };
+  const CONTACT_LINKS = { mobile: "tel", phone: "tel", email: "mailto" };
   // Non-staff section label per group -- 育成 has no kids, its plain
   // members are young adults, so it gets its own label instead of "小孩".
   const NON_STAFF_LABELS = { A: "小蟻", B: "小蜂", D: "小鹿", E: "小鷹", C: "育成大人" };
@@ -522,8 +525,13 @@
       .map((key) => {
         const value = person[key];
         const linkKind = CONTACT_LINKS[key];
+        // 電話要把空白、括號編掉；email 本身就是合法的 URI，用
+        // encodeURIComponent 反而會把 @ 變成 %40。
+        const href = linkKind === "mailto"
+          ? `mailto:${encodeURI(value)}`
+          : `${linkKind}:${encodeURIComponent(value)}`;
         const display = linkKind
-          ? `<a href="${linkKind}:${encodeURIComponent(value)}">${escapeHtml(value)}</a>`
+          ? `<a href="${escapeHtml(href)}">${escapeHtml(value)}</a>`
           : escapeHtml(value);
         return `<div class="field-row"><span class="label">${CONTACT_LABELS[key]}</span><span>${display}</span></div>`;
       })

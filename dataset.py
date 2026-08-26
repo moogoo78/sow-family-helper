@@ -49,13 +49,18 @@ def group_for_role(group_name, role):
 # Optional contact columns that may be added to `person` later (see schema.private.md).
 # Auto-detected via PRAGMA table_info so no code change is needed after
 # `ALTER TABLE person ADD COLUMN ...` -- just restart the server.
-# `email` is deliberately absent: the column is populated in the DB but the
-# address book does not show it, so it stays out of the API payload too.
 CONTACT_COLUMNS = {
     "mobile": "tel",
     "phone": "tel",
     "line_id": None,
     "address": None,
+}
+
+# Contact columns only an admin session may see (server.py decides who is one).
+# For everyone else these are never queried at all, so they cannot leak through
+# the API payload the way a frontend-side "don't render this" would.
+ADMIN_CONTACT_COLUMNS = {
+    "email": "mailto",
 }
 
 
@@ -185,9 +190,12 @@ def connect():
     return con
 
 
-def detect_contact_columns(con):
+def detect_contact_columns(con, is_admin=False):
     cols = {row["name"] for row in con.execute("PRAGMA table_info(person)")}
-    return [c for c in CONTACT_COLUMNS if c in cols]
+    wanted = list(CONTACT_COLUMNS)
+    if is_admin:
+        wanted += list(ADMIN_CONTACT_COLUMNS)
+    return [c for c in wanted if c in cols]
 
 
 def relation_label(sex, is_child):
@@ -216,9 +224,11 @@ def family_active_in_year(fam_row, year):
     return True
 
 
-def build_members(con):
+def build_members(con, is_admin=False):
+    """The member bundle. `is_admin` adds the admin-only contact columns
+    (email) -- a normal session's payload never carries them."""
     current_th_year = get_current_th_year(con)
-    contact_cols = detect_contact_columns(con)
+    contact_cols = detect_contact_columns(con, is_admin)
     contact_select = "".join(f", p.{c}" for c in contact_cols)
 
     people = {

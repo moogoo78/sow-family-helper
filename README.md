@@ -27,9 +27,13 @@
 ## 跑起來
 
 ```bash
-python3 scripts/set_password.py     # 設定共用密碼（寫進 north7.sqlite）
-python3 server.py                   # http://localhost:8000
+python3 scripts/set_password.py           # 設定共用密碼（寫進 north7.sqlite）
+python3 scripts/set_password.py --admin   # （選用）設定管理密碼
+python3 server.py                         # http://localhost:8000
 ```
+
+**兩組密碼、同一個登入欄位**：共用密碼是給全團的；管理密碼多解鎖 email
+（見下面的「管理密碼」）。沒設管理密碼就沒有人登得進管理模式。
 
 需要 Python 3.8 以上，沒有其他相依套件。`HOST`／`PORT` 可以用環境變數換掉。
 
@@ -43,6 +47,16 @@ make down        # 停掉
 
 正式部署（含 Traefik + TLS）看 [DEPLOY.md](DEPLOY.md)。
 
+## 管理密碼
+
+Email 只給管理密碼看。用共用密碼登入時，email **根本不會出現在 API 回應裡**
+（`dataset.ADMIN_CONTACT_COLUMNS`，連查都不會查），不是前端藏起來而已；用管理
+密碼登入才會多出「Email」那一列，點下去就是 `mailto:`。
+
+登入欄位只有一個，密碼是哪一組由後端判斷。管理 session 只留 30 天（一般登入是
+400 天），改管理密碼也不會把全團登出——反過來，改共用密碼還是會換掉 session
+金鑰、把所有裝置登出。兩組密碼不能設成一樣，`set_password.py` 會擋。
+
 ## 資料
 
 `north7.sqlite` **不在這個 repo 裡**，也不會被打包進 image——它同時放著團員個資
@@ -54,12 +68,17 @@ make down        # 停掉
 真的自然名與姓名，跟 `north7.sqlite` 一起放在 host 上（`.gitignore` 擋掉
 `*.private.md`）。匯入資料前值得先讀後面那一份。
 
-`scripts/` 裡進到 repo 的只有兩支，都沒有個資：
+`scripts/` 裡進到 repo 的只有三支，都沒有個資：
 
 | script | 做什麼 |
 | ------ | ------ |
-| `set_password.py` | 設定共用密碼，順便換掉 session 簽章金鑰 |
+| `set_password.py` | 設定共用／管理密碼（改共用密碼會順便換掉 session 簽章金鑰） |
 | `normalize_training_names.py` | 統一課程名稱寫法（`蜂十七基` → `北蜂17基`） |
+| `backfill_from_roster.py` | 從當年度名冊 CSV 補上 `person` 空著的姓名／email |
+
+`backfill_from_roster.py` 只填空欄位、不覆蓋既有資料，所以可以重複跑；比對規則
+刻意保守（有姓名的比姓名，沒姓名的比自然名，而且兩邊都要唯一），對不起來的會
+一筆一筆印出原因，剩下的用手處理。預設 dry run，`--apply` 才寫入，寫之前先備份。
 
 其餘的名冊匯入與資料修復 script（`import_n7_10.py`、`fix_nickname_merges.py`、
 `merge_duplicate_people.py`、`merge_duplicate_families.py`、
