@@ -3,7 +3,7 @@ DC_TRAEFIK := docker compose -f docker-compose.yml -f compose.traefik.yml
 
 .PHONY: help up down restart build logs ps shell \
         up-traefik down-traefik restart-traefik logs-traefik ps-traefik \
-        set-password health clean
+        set-password set-admin-password health clean
 
 help:
 	@echo "Local (host port 127.0.0.1:8010):"
@@ -14,7 +14,8 @@ help:
 	@echo "  make logs           follow logs"
 	@echo "  make ps             show status"
 	@echo "  make shell          shell into app container"
-	@echo "  make set-password   run scripts/set_password.py in container"
+	@echo "  make set-password   set the shared password (in container)"
+	@echo "  make set-admin-password  set the admin password, which unlocks email"
 	@echo "  make health         curl /healthz"
 	@echo "  make clean          down + remove volumes"
 	@echo ""
@@ -43,6 +44,9 @@ shell:
 
 set-password:
 	$(DC) exec app python3 scripts/set_password.py
+
+set-admin-password:
+	$(DC) exec app python3 scripts/set_password.py --admin
 
 health:
 	curl -s localhost:8010/healthz && echo
