@@ -14,6 +14,7 @@ Env vars:
                     compose.traefik.yml); anything else counts as a local
                     dev instance and gets a "dev | " page-title prefix
 """
+import gzip
 import hashlib
 import hmac
 import html
@@ -37,6 +38,10 @@ SESSION_MAX_AGE = 400 * 24 * 3600  # ~400 days: "remember this device"
 ADMIN_SESSION_MAX_AGE = 30 * 24 * 3600
 ROLE_MEMBER = "member"
 ROLE_ADMIN = "admin"
+# /api/members carries every member the 團 has ever had (~650 KB of JSON,
+# which gzips to ~60 KB); everything else is a few dozen bytes and is not
+# worth compressing.
+GZIP_MIN_BYTES = 4096
 LOGIN_RATE_LIMIT = 8
 LOGIN_RATE_WINDOW = 600  # seconds
 PBKDF2_ITERATIONS = 310_000  # must match scripts/set_password.py
@@ -127,10 +132,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def _send_json(self, status, payload, extra_headers=None):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        headers = list(extra_headers or [])
+        if len(body) >= GZIP_MIN_BYTES and "gzip" in self.headers.get("Accept-Encoding", ""):
+            body = gzip.compress(body, 6)
+            headers.append(("Content-Encoding", "gzip"))
+            headers.append(("Vary", "Accept-Encoding"))
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        for k, v in (extra_headers or []):
+        for k, v in headers:
             self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)

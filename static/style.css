@@ -19,6 +19,8 @@
   --lead-card-bg: #f6f1e6;
   --lead-border: #ddd0b4;
   --lead-text: #7a6230;
+  --former-card-bg: #f1efec;
+  --former-border: #d8d0c7;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +44,8 @@
     --lead-card-bg: #2b2820;
     --lead-border: #4d452f;
     --lead-text: #d8c18a;
+    --former-card-bg: #262320;
+    --former-border: #46403a;
   }
 }
 
@@ -261,6 +265,41 @@ html, body {
 
 .group-card-lead .group-name { color: var(--lead-text); }
 .group-card-lead .group-counts { color: var(--lead-text); opacity: 0.8; }
+
+/* 查看老團員 -- 用離團名單本來就在用的那個顏色，不再多發明一種 */
+.group-card-former {
+  background: var(--former-card-bg);
+  border-color: var(--former-border);
+}
+
+.group-card-former .group-name { color: var(--former-text); }
+.group-card-former .group-counts { color: var(--former-text); opacity: 0.8; }
+
+/* 搜尋結果裡現役與已離團之間的分隔 */
+.result-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 6px;
+  padding: 0 4px;
+  font-size: 0.8rem;
+  color: var(--former-text);
+}
+
+.result-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--border);
+}
+
+.result-divider .count-badge {
+  background: var(--former-card-bg);
+  border: 1px solid var(--former-border);
+  color: var(--former-text);
+  font-size: 0.72rem;
+  padding: 1px 8px;
+  border-radius: 999px;
+}
 
 /* 上過X基 summary cards, tinted with the same 團 colours as the gantt */
 .base-card {
@@ -544,14 +583,17 @@ html, body {
 }
 
 /* 歷年團會長：一列一位，左邊那條是該團的顏色（同甘特圖） */
-.leader-year {
+/* 一年一段的清單標題：歷年團會長與查看老團員共用 */
+.leader-year,
+.list-year {
   margin: 18px 0 8px;
   font-size: 0.85rem;
   color: var(--text-muted);
   font-weight: 600;
 }
 
-.leader-year:first-of-type { margin-top: 8px; }
+.leader-year:first-of-type,
+.list-year:first-of-type { margin-top: 8px; }
 
 .leader-row {
   display: flex;

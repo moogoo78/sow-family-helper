@@ -147,8 +147,10 @@ def build_leaders(con):
     still be sitting in the DB as two person rows. Two different people in one
     year and 團 are both kept -- year 1 really did have two 蟻團團長.
 
-    Every leader is listed, including the handful who left long ago and are
-    not in the member payload; the frontend links only the ones it can find.
+    Every leader is listed. They all reach the frontend as clickable now
+    that the payload carries former members too, but the 自然名 here comes
+    from role_log rather than from `people`, so a leader who somehow has no
+    matching entry still shows up -- just without a link.
     """
     by_year = {}
     seen = set()
@@ -313,12 +315,10 @@ def build_members(con, is_admin=False):
         # record is their role_log entry.
         active = (any(family_active_in_year(f, current_th_year) for f in fam_rows)
                   or pid in current_group_by_person)
-        # People who have left are carried too, but only when they have a
-        # 培訓紀錄: over half of everyone who has been on a 基訓 has since left,
-        # and a 基訓 roster missing half its names is not much of a roster.
-        # `active` keeps them out of everything else (搜尋、分團、新家庭).
-        if not active and pid not in trainings:
-            continue
+        # Everyone who has ever been on a roster is carried, not just this
+        # year's -- 培訓 lists need the half of each 基訓 that has since left,
+        # and 查看老團員 needs all of them. `active` is what keeps them out of
+        # 分團 and 新家庭; the frontend decides where they belong.
         current = pick_current(fam_rows) if fam_rows else None
         past = [f for f in fam_rows if current and f["id"] != current["id"]]
 

@@ -26,6 +26,7 @@
   let trainingList = false;
   let leaders = [];
   let leaderList = false;
+  let formerList = false;
 
   const CONTACT_LABELS = {
     mobile: "手機",
@@ -90,6 +91,7 @@
     newFamilyList = false;
     trainingList = false;
     leaderList = false;
+    formerList = false;
     hide(loginScreen);
     show(appScreen);
     renderHome();
@@ -117,10 +119,20 @@
     }
   });
 
-  // 現役團員。`people` also carries people who have left but have a 培訓紀錄
-  // (see dataset.py) -- they belong in the 培訓 lists and nowhere else.
+  // 現役團員。`people` 裡也有已經離團的人（見 dataset.py），他們只出現在
+  // 培訓名單、查看老團員，以及搜尋結果的「已離團」那一段。
   function roster() {
     return people.filter((p) => p.active !== false);
+  }
+
+  // 老團員：今年不在名單上的人。最近離團的排前面，同一年的照自然名排。
+  function formerMembers() {
+    return people
+      .filter((p) => p.active === false)
+      .sort((a, b) =>
+        (b.last_th_year || 0) - (a.last_th_year || 0) ||
+        (a.nickname || "").localeCompare(b.nickname || "", "zh-Hant")
+      );
   }
 
   // 自然名 + 本名 only -- the 家族名 shown next to each row is not searched.
@@ -145,14 +157,21 @@
   }
 
   function renderResults(query) {
-    const filtered = roster().filter((p) => matches(p, query));
-    if (filtered.length === 0) {
+    const current = roster().filter((p) => matches(p, query));
+    // 老團員也找得到，但另起一段排在後面：十一年份的舊名字要是跟現役的混在
+    // 一起，找今年的人會被淹掉。
+    const former = formerMembers().filter((p) => matches(p, query));
+    if (current.length === 0 && former.length === 0) {
       resultsEl.innerHTML = '<div class="empty-state">找不到符合的人</div>';
       return;
     }
-    resultsEl.innerHTML = filtered
-      .map((p) => memberRow(p, (p.family && p.family.name) || ""))
-      .join("");
+    const divider = former.length
+      ? `<div class="result-divider">已離團<span class="count-badge">${former.length}</span></div>`
+      : "";
+    resultsEl.innerHTML =
+      current.map((p) => memberRow(p, (p.family && p.family.name) || "")).join("") +
+      divider +
+      former.map((p) => memberRow(p, memberSubtitle(p))).join("");
   }
 
   function renderGroupCards() {
@@ -189,6 +208,14 @@
         <div class="group-card group-card-lead" data-view="leaders">
           <span class="group-name">歷年團會長</span>
           <span class="group-counts">第 1 - ${currentThYear} 年</span>
+        </div>`;
+    }
+    const former = formerMembers();
+    if (former.length) {
+      resultsEl.innerHTML += `
+        <div class="group-card group-card-former" data-view="former">
+          <span class="group-name">查看老團員</span>
+          <span class="group-counts">${former.length} 人</span>
         </div>`;
     }
   }
@@ -396,6 +423,27 @@
       ${years || '<div class="empty-state">沒有團會長紀錄</div>'}`;
   }
 
+  // 查看老團員：一個離團年一段，最近的在最上面。人還在 payload 裡，所以每個
+  // 都點得進去看家庭與歷年職務。
+  function renderFormerList() {
+    const list = formerMembers();
+    const sections = [];
+    let year;
+    for (const p of list) {
+      if (p.last_th_year !== year) {
+        year = p.last_th_year;
+        const heading = year ? `第 ${year} 年離團` : "離團年份不詳";
+        sections.push(`<h3 class="list-year">${heading}</h3>`);
+      }
+      sections.push(memberRow(p, (p.family && p.family.name) || ""));
+    }
+    resultsEl.innerHTML = `
+      <div class="group-back" data-to="home">&larr; 所有分團</div>
+      <h2 class="group-title">查看老團員<span class="count-badge">${list.length}</span></h2>
+      <p class="hint">今年名單上沒有的人，依離團年份排列。</p>
+      ${sections.join("") || '<div class="empty-state">沒有離團紀錄</div>'}`;
+  }
+
   function renderTrainingList() {
     const index = trainingIndex();
     // numeric: true so 北鹿6基 comes before 北鹿12基 rather than after it.
@@ -465,6 +513,8 @@
       renderTrainingList();
     } else if (leaderList) {
       renderLeaderList();
+    } else if (formerList) {
+      renderFormerList();
     } else if (selectedGroup && selectedCategory) {
       renderCategoryMembers(selectedGroup, selectedCategory);
     } else if (selectedGroup) {
@@ -480,6 +530,7 @@
       if (card.dataset.view === "trainings") trainingList = true;
       else if (card.dataset.view === "newfamilies") newFamilyList = true;
       else if (card.dataset.view === "leaders") leaderList = true;
+      else if (card.dataset.view === "former") formerList = true;
       else if (card.dataset.family) selectedFamily = card.dataset.family;
       else if (card.dataset.base) selectedBase = card.dataset.base;
       else if (card.dataset.training) selectedTraining = card.dataset.training;
@@ -506,6 +557,7 @@
         newFamilyList = false;
         trainingList = false;
         leaderList = false;
+        formerList = false;
       }
       renderHome();
       return;
