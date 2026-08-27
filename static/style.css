@@ -497,6 +497,19 @@ html, body {
   cursor: pointer;
 }
 
+/* 只有管理密碼登入才看得到的欄位（email）。一般登入拿到的 payload 裡沒有
+   這一欄，所以這個標記出現本身就代表現在是管理模式。 */
+.admin-only-tag {
+  margin-left: 8px;
+  font-size: 0.72rem;
+  color: var(--lead-text);
+  background: var(--lead-card-bg);
+  border: 1px solid var(--lead-border);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
 .section {
   margin-bottom: 16px;
 }

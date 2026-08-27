@@ -37,6 +37,10 @@
     address: "地址",
   };
   const CONTACT_LINKS = { mobile: "tel", phone: "tel", email: "mailto" };
+  // 用管理密碼登入才拿得到的欄位。這裡不做權限判斷——一般登入的 payload
+  // 裡根本沒有這幾個 key（見 server.py），所以有值就代表是管理模式。值一樣
+  // 要點過才顯示，並且標明這是別人看不到的東西。
+  const ADMIN_ONLY_FIELDS = new Set(["email"]);
   // Non-staff section label per group -- 育成 has no kids, its plain
   // members are young adults, so it gets its own label instead of "小孩".
   const NON_STAFF_LABELS = { A: "小蟻", B: "小蜂", D: "小鹿", E: "小鷹", C: "育成大人" };
@@ -524,16 +528,23 @@
       .filter((key) => person[key])
       .map((key) => {
         const value = person[key];
+        const label = CONTACT_LABELS[key];
         const linkKind = CONTACT_LINKS[key];
         // 電話要把空白、括號編掉；email 本身就是合法的 URI，用
         // encodeURIComponent 反而會把 @ 變成 %40。
         const href = linkKind === "mailto"
           ? `mailto:${encodeURI(value)}`
           : `${linkKind}:${encodeURIComponent(value)}`;
+        if (ADMIN_ONLY_FIELDS.has(key)) {
+          return `<div class="field-row"><span class="label">${label}</span><span>`
+            + `<button type="button" class="reveal-btn" data-value="${escapeHtml(value)}"`
+            + ` data-href="${escapeHtml(href)}">顯示 ${label}</button>`
+            + `<span class="admin-only-tag">僅管理者可見</span></span></div>`;
+        }
         const display = linkKind
           ? `<a href="${escapeHtml(href)}">${escapeHtml(value)}</a>`
           : escapeHtml(value);
-        return `<div class="field-row"><span class="label">${CONTACT_LABELS[key]}</span><span>${display}</span></div>`;
+        return `<div class="field-row"><span class="label">${label}</span><span>${display}</span></div>`;
       })
       .join("");
   }
@@ -706,8 +717,15 @@
   detailContent.addEventListener("click", (e) => {
     const reveal = e.target.closest(".reveal-btn");
     if (reveal) {
-      // textContent, so the value is never parsed as markup
-      reveal.replaceWith(document.createTextNode(reveal.dataset.value || ""));
+      const value = reveal.dataset.value || "";
+      // textContent / .href, so the value is never parsed as markup
+      let revealed = document.createTextNode(value);
+      if (reveal.dataset.href) {
+        revealed = document.createElement("a");
+        revealed.href = reveal.dataset.href;
+        revealed.textContent = value;
+      }
+      reveal.replaceWith(revealed);
       return;
     }
     const training = e.target.closest("[data-training]");
