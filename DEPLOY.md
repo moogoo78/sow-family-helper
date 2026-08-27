@@ -73,4 +73,8 @@ is what keeps the page title clean; any instance started without it (plain
 - `north7.sqlite` is mounted read-write (not `:ro`) because the app's own
   password-reset flow writes to it; if you'd rather rotate the password from
   inside the container instead of the host, run
-  `docker compose exec app python3 scripts/set_password.py`.
+  `docker compose exec -u root app python3 scripts/set_password.py`
+  (`make set-password` / `make set-admin-password` do this for you). The
+  `-u root` matters: the image runs as uid 10001 while the mounted DB is
+  owned by the host user, so without it SQLite reports
+  "attempt to write a readonly database".
