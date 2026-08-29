@@ -5,7 +5,7 @@ __pycache__/
 .gitignore
 
 # The DB holds the password hash and member PII; mount at runtime, don't bake in.
-north7.sqlite
+north7*.sqlite
 
 *.log
 
@@ -17,6 +17,8 @@ scripts/merge_duplicate_people.py
 scripts/merge_duplicate_families.py
 scripts/restore_none_role_rows.py
 scripts/split_shared_nicknames.py
+scripts/merge_renamed_person.py
+scripts/fill_nameless_members.py
 
 # Host-only notes that quote the roster.
 *.private.md

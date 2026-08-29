@@ -5,8 +5,8 @@ __pycache__/
 
 # Contains the password hash and member PII (names, birthdays, etc.) —
 # supplied on the host, not committed.
-north7.sqlite
-north7.sqlite.bak-*
+north7*.sqlite
+north7*.sqlite.bak-*
 
 # Roster exports -- same member PII as the DB.
 *.csv
@@ -26,6 +26,8 @@ scripts/merge_duplicate_people.py
 scripts/merge_duplicate_families.py
 scripts/restore_none_role_rows.py
 scripts/split_shared_nicknames.py
+scripts/merge_renamed_person.py
+scripts/fill_nameless_members.py
 
 # Saved stashes / WIP patches -- host only.
 *.private.patch
