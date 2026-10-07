@@ -210,7 +210,15 @@ html, body {
   color: var(--text-muted);
 }
 
-/* 首頁的公告與快速連結（Google 試算表） */
+/* 公告與快速連結（Google 試算表），在搜尋列上面 */
+.board {
+  padding: 8px 12px 0;
+}
+
+.board:empty {
+  display: none;
+}
+
 .board-notice {
   position: relative;
   margin: 8px 0;

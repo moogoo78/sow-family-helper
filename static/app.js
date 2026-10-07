@@ -8,6 +8,7 @@
   const loginError = document.getElementById("login-error");
   const searchInput = document.getElementById("search-input");
   const resultsEl = document.getElementById("results");
+  const boardEl = document.getElementById("board");
   const detailEl = document.getElementById("detail");
   const detailContent = document.getElementById("detail-content");
   const detailBack = document.getElementById("detail-back");
@@ -112,7 +113,7 @@
     } catch (e) {
       return;
     }
-    if (board.notices.length || board.links.length) renderHome();
+    renderBoard();
   }
 
   // 試算表的「類別」決定按鈕的顏色和 emoji；沒列在這裡的就用一般樣式。
@@ -178,6 +179,24 @@
       : "";
     return notices + restore + (links ? `<div class="quick-links">${links}</div>` : "");
   }
+
+  // 公告與按鈕放在搜尋列上面，不管在哪個畫面都看得到。
+  function renderBoard() {
+    boardEl.innerHTML = boardHtml();
+  }
+
+  boardEl.addEventListener("click", (e) => {
+    const hideBtn = e.target.closest(".notice-hide");
+    if (hideBtn) {
+      hideNotice(hideBtn.closest(".board-notice").dataset.key);
+      renderBoard();
+      return;
+    }
+    if (e.target.closest(".notice-restore")) {
+      showHiddenNotices();
+      renderBoard();
+    }
+  });
 
   loginForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -260,7 +279,7 @@
       resultsEl.innerHTML = '<div class="empty-state">目前沒有分團資料</div>';
       return;
     }
-    resultsEl.innerHTML = boardHtml() + groups
+    resultsEl.innerHTML = groups
       .map((g) => {
         const counts = groupCategories(g.code)
           .map(({ category, label }) => `${escapeHtml(label)} ${groupMembers(g.code, category).length}`)
@@ -606,18 +625,6 @@
   }
 
   resultsEl.addEventListener("click", (e) => {
-    const hideBtn = e.target.closest(".notice-hide");
-    if (hideBtn) {
-      const notice = hideBtn.closest(".board-notice");
-      hideNotice(notice.dataset.key);
-      renderHome();
-      return;
-    }
-    if (e.target.closest(".notice-restore")) {
-      showHiddenNotices();
-      renderHome();
-      return;
-    }
     const card = e.target.closest(".group-card");
     if (card) {
       if (card.dataset.view === "trainings") trainingList = true;
