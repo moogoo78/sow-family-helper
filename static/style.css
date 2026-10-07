@@ -240,7 +240,8 @@ html, body {
   line-height: 1.5;
 }
 
-.notice-hide {
+.notice-hide,
+.links-hide {
   position: absolute;
   top: 4px;
   right: 4px;
@@ -254,7 +255,7 @@ html, body {
   cursor: pointer;
 }
 
-.notice-restore {
+.board-restore {
   display: block;
   margin: 4px 0 8px auto;
   padding: 4px 2px;
@@ -267,10 +268,17 @@ html, body {
 }
 
 .quick-links {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin: 8px 0 12px;
+  padding-right: 40px; /* room for the × */
+}
+
+.links-hide {
+  top: 0;
+  right: -2px;
 }
 
 .quick-link {

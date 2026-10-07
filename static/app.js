@@ -119,6 +119,7 @@
   // 試算表的「類別」決定按鈕的顏色和 emoji；沒列在這裡的就用一般樣式。
   const LINK_ICONS = { survey: "📝", drive: "📁", link: "🔗" };
   const HIDDEN_NOTICES_KEY = "sow_hidden_notices";
+  const HIDDEN_LINKS_KEY = "sow_hidden_links";
 
   // 按 × 收起的公告記在這台裝置上。標題或內文一改就是新的 key，會再出現。
   function noticeKey(n) {
@@ -152,6 +153,28 @@
     }
   }
 
+  // 按鈕區整塊收起，記的是當時那組按鈕；試算表的按鈕一改就會再出現。
+  function linksKey() {
+    return JSON.stringify(board.links.map((l) => [l.label, l.url]));
+  }
+
+  function linksHidden() {
+    try {
+      return localStorage.getItem(HIDDEN_LINKS_KEY) === linksKey();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function setLinksHidden(hide) {
+    try {
+      if (hide) localStorage.setItem(HIDDEN_LINKS_KEY, linksKey());
+      else localStorage.removeItem(HIDDEN_LINKS_KEY);
+    } catch (e) {
+      // 存不了（無痕模式）就不記
+    }
+  }
+
   function boardHtml() {
     const hidden = hiddenNotices();
     const hiddenCount = board.notices.filter((n) => hidden.has(noticeKey(n))).length;
@@ -173,11 +196,18 @@
           + `${LINK_ICONS[kind]} ${escapeHtml(l.label)}</a>`;
       })
       .join("");
-    // 有收起的公告才出現，點了全部放回來。
-    const restore = hiddenCount
-      ? `<button type="button" class="notice-restore">顯示已隱藏的公告（${hiddenCount}）</button>`
+    // 有收起的公告／按鈕才出現，點了放回來。
+    const restoreNotices = hiddenCount
+      ? `<button type="button" class="board-restore" data-restore="notices">顯示已隱藏的公告（${hiddenCount}）</button>`
       : "";
-    return notices + restore + (links ? `<div class="quick-links">${links}</div>` : "");
+    let linksBlock = "";
+    if (links && linksHidden()) {
+      linksBlock = `<button type="button" class="board-restore" data-restore="links">顯示快速連結（${board.links.length}）</button>`;
+    } else if (links) {
+      linksBlock = `<div class="quick-links">${links}`
+        + `<button type="button" class="links-hide" aria-label="隱藏快速連結">×</button></div>`;
+    }
+    return notices + restoreNotices + linksBlock;
   }
 
   // 公告與按鈕放在搜尋列上面，不管在哪個畫面都看得到。
@@ -192,8 +222,15 @@
       renderBoard();
       return;
     }
-    if (e.target.closest(".notice-restore")) {
-      showHiddenNotices();
+    if (e.target.closest(".links-hide")) {
+      setLinksHidden(true);
+      renderBoard();
+      return;
+    }
+    const restore = e.target.closest(".board-restore");
+    if (restore) {
+      if (restore.dataset.restore === "links") setLinksHidden(false);
+      else showHiddenNotices();
       renderBoard();
     }
   });
