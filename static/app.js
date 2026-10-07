@@ -143,8 +143,17 @@
     }
   }
 
+  function showHiddenNotices() {
+    try {
+      localStorage.removeItem(HIDDEN_NOTICES_KEY);
+    } catch (e) {
+      // 存不了的話本來就沒有記住任何收起的公告
+    }
+  }
+
   function boardHtml() {
     const hidden = hiddenNotices();
+    const hiddenCount = board.notices.filter((n) => hidden.has(noticeKey(n))).length;
     const notices = board.notices
       .filter((n) => !hidden.has(noticeKey(n)))
       .map((n) => `
@@ -163,7 +172,11 @@
           + `${LINK_ICONS[kind]} ${escapeHtml(l.label)}</a>`;
       })
       .join("");
-    return notices + (links ? `<div class="quick-links">${links}</div>` : "");
+    // 有收起的公告才出現，點了全部放回來。
+    const restore = hiddenCount
+      ? `<button type="button" class="notice-restore">顯示已隱藏的公告（${hiddenCount}）</button>`
+      : "";
+    return notices + restore + (links ? `<div class="quick-links">${links}</div>` : "");
   }
 
   loginForm.addEventListener("submit", async (e) => {
@@ -597,7 +610,12 @@
     if (hideBtn) {
       const notice = hideBtn.closest(".board-notice");
       hideNotice(notice.dataset.key);
-      notice.remove();
+      renderHome();
+      return;
+    }
+    if (e.target.closest(".notice-restore")) {
+      showHiddenNotices();
+      renderHome();
       return;
     }
     const card = e.target.closest(".group-card");
