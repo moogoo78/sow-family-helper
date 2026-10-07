@@ -26,6 +26,7 @@ import http.cookies
 import json
 import mimetypes
 import os
+import re
 import sqlite3
 import threading
 import time
@@ -58,6 +59,15 @@ DEV_TITLE_PREFIX = "dev | "
 _login_attempts = {}
 _login_lock = threading.Lock()
 
+# app.js / style.css are linked from index.html as app.<hash>.js etc., the
+# hash taken from the file's content. Cloudflare sits in front of the real
+# deployment, caches .js/.css by extension, ignores query strings and does
+# not honour our no-cache -- so a new file only reaches people if its URL
+# changes. index.html itself is not cached there, so it always carries the
+# current hashes.
+VERSIONED_ASSETS = ("app.js", "style.css")
+VERSIONED_RE = re.compile(r"^(?P<stem>[\w-]+)\.(?P<hash>[0-9a-f]{10})\.(?P<ext>js|css)$")
+
 # The home-screen notice + quick links come from a Google Sheet tab published
 # to the web as CSV (SOW_BOARD_CSV_URL). Cached so a page
 # load does not wait on Google, and the last good copy is kept when a fetch
@@ -84,6 +94,16 @@ def rate_limit_ok(ip):
 def get_setting(con, key):
     row = con.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
     return row[0] if row else None
+
+
+def asset_hash(name):
+    with open(os.path.join(STATIC_DIR, name), "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()[:10]
+
+
+def versioned_name(name):
+    stem, ext = name.rsplit(".", 1)
+    return f"{stem}.{asset_hash(name)}.{ext}"
 
 
 def parse_board(text):
@@ -253,7 +273,15 @@ class Handler(BaseHTTPRequestHandler):
             path = "/index.html"
         elif path.startswith("/static/"):
             path = path[len("/static/"):]
+        path = path.split("?", 1)[0]
         rel = path.lstrip("/")
+        # app.<hash>.js -> app.js. A hash that is not the current one (an old
+        # index.html still open on a phone) gets today's file, uncached.
+        immutable = False
+        m = VERSIONED_RE.match(rel)
+        if m and f"{m['stem']}.{m['ext']}" in VERSIONED_ASSETS:
+            rel = f"{m['stem']}.{m['ext']}"
+            immutable = m["hash"] == asset_hash(rel)
         full = os.path.normpath(os.path.join(STATIC_DIR, rel))
         if not full.startswith(STATIC_DIR) or not os.path.isfile(full):
             self._send_json(404, {"error": "not found"})
@@ -263,14 +291,20 @@ class Handler(BaseHTTPRequestHandler):
             body = f.read()
         if rel == "index.html":
             body = self._brand_index(body)
+            for name in VERSIONED_ASSETS:
+                body = body.replace(f"/static/{name}".encode(), f"/static/{versioned_name(name)}".encode(), 1)
         if IS_DEV and rel == "index.html":
             body = body.replace(b"<title>", b"<title>" + DEV_TITLE_PREFIX.encode("utf-8"), 1)
         self.send_response(200)
         self.send_header("Content-Type", content_type or "application/octet-stream")
         self.send_header("Content-Length", str(len(body)))
-        # Revalidate every load: without it a browser (or a home-screen PWA)
-        # can keep running an old app.js long after a deploy.
-        self.send_header("Cache-Control", "no-cache")
+        # A hashed URL never changes content, so it can be kept forever;
+        # everything else revalidates every load, or a browser (or a
+        # home-screen PWA) can keep running an old file long after a deploy.
+        if immutable:
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        else:
+            self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         self.wfile.write(body)
 
