@@ -13,3 +13,7 @@ services:
       - "127.0.0.1:8010:8000"
     volumes:
       - ${SOW_DB_FILE:-./north7.sqlite}:/app/north7.sqlite
+    # Home-screen notice + quick links: a Google Sheet tab published to the
+    # web as CSV (see README). Empty = no board.
+    environment:
+      SOW_BOARD_CSV_URL: ${SOW_BOARD_CSV_URL:-}

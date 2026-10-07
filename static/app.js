@@ -27,6 +27,8 @@
   let leaders = [];
   let leaderList = false;
   let formerList = false;
+  // 首頁的公告與快速連結，來自 Google 試算表（見 server.py 的 /api/board）。
+  let board = { notices: [], links: [] };
 
   const CONTACT_LABELS = {
     mobile: "手機",
@@ -96,7 +98,32 @@
     hide(loginScreen);
     show(appScreen);
     renderHome();
+    loadBoard();
     return true;
+  }
+
+  // 跟名單分開抓：試算表慢或掛了都不該擋住通訊錄。
+  async function loadBoard() {
+    try {
+      const res = await fetch("/api/board");
+      if (!res.ok) return;
+      const data = await res.json();
+      board = { notices: data.notices || [], links: data.links || [] };
+    } catch (e) {
+      return;
+    }
+    if (board.notices.length || board.links.length) renderHome();
+  }
+
+  function boardHtml() {
+    const notices = board.notices
+      .map((n) => `<p>${escapeHtml(n)}</p>`)
+      .join("");
+    const links = board.links
+      .map((l) => `<a class="quick-link" href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.label)}</a>`)
+      .join("");
+    return (notices ? `<div class="board-notice">${notices}</div>` : "")
+      + (links ? `<div class="quick-links">${links}</div>` : "");
   }
 
   loginForm.addEventListener("submit", async (e) => {
@@ -180,7 +207,7 @@
       resultsEl.innerHTML = '<div class="empty-state">目前沒有分團資料</div>';
       return;
     }
-    resultsEl.innerHTML = groups
+    resultsEl.innerHTML = boardHtml() + groups
       .map((g) => {
         const counts = groupCategories(g.code)
           .map(({ category, label }) => `${escapeHtml(label)} ${groupMembers(g.code, category).length}`)

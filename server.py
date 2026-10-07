@@ -13,7 +13,11 @@ Env vars:
     SOW_ENV         set to "production" for the real deployment (see
                     compose.traefik.yml); anything else counts as a local
                     dev instance and gets a "dev | " page-title prefix
+    SOW_BOARD_CSV_URL  a Google Sheet tab published to the web as CSV that
+                    holds the home-screen notice + quick links (see README);
+                    unset means no board
 """
+import csv
 import gzip
 import hashlib
 import hmac
@@ -25,6 +29,7 @@ import os
 import sqlite3
 import threading
 import time
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import dataset
@@ -53,6 +58,16 @@ DEV_TITLE_PREFIX = "dev | "
 _login_attempts = {}
 _login_lock = threading.Lock()
 
+# The home-screen notice + quick links come from a Google Sheet tab published
+# to the web as CSV (SOW_BOARD_CSV_URL). Cached so a page
+# load does not wait on Google, and the last good copy is kept when a fetch
+# fails -- the sheet being down must never break the app.
+BOARD_CSV_URL = os.environ.get("SOW_BOARD_CSV_URL", "").strip()
+BOARD_CACHE_SECONDS = 300
+BOARD_FETCH_TIMEOUT = 5
+_board_cache = {"url": None, "at": 0.0, "board": {"notices": [], "links": []}}
+_board_lock = threading.Lock()
+
 
 def rate_limit_ok(ip):
     now = time.time()
@@ -69,6 +84,44 @@ def rate_limit_ok(ip):
 def get_setting(con, key):
     row = con.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
     return row[0] if row else None
+
+
+def parse_board(text):
+    """Sheet rows `type,text,url` -> {"notices": [...], "links": [...]}.
+
+    A header row, blank rows and unknown types fall out on their own. Links
+    must be http(s) -- anything else (javascript:, data:) is dropped, since
+    whoever can edit the sheet would otherwise be able to run script here.
+    """
+    notices, links = [], []
+    for row in csv.reader(text.splitlines()):
+        kind, label, url = [(c or "").strip() for c in (row + ["", "", ""])[:3]]
+        kind = kind.lower()
+        if kind == "notice" and label:
+            notices.append(label)
+        elif kind == "link" and label and url.lower().startswith(("https://", "http://")):
+            links.append({"label": label, "url": url})
+    return {"notices": notices, "links": links}
+
+
+def get_board(url):
+    if not url:
+        return {"notices": [], "links": []}
+    with _board_lock:
+        cache = dict(_board_cache)
+    if cache["url"] == url and time.time() - cache["at"] < BOARD_CACHE_SECONDS:
+        return cache["board"]
+    try:
+        with urllib.request.urlopen(url, timeout=BOARD_FETCH_TIMEOUT) as res:
+            board = parse_board(res.read().decode("utf-8-sig"))
+    except Exception as e:  # network, HTTP, decode -- all mean "keep the old one"
+        print(f"board fetch failed: {e!r}")
+        board = cache["board"] if cache["url"] == url else {"notices": [], "links": []}
+    # A failed fetch is cached too, so a dead sheet costs one timeout per
+    # BOARD_CACHE_SECONDS rather than one per page load.
+    with _board_lock:
+        _board_cache.update(url=url, at=time.time(), board=board)
+    return board
 
 
 def password_matches(con, password, prefix):
@@ -215,6 +268,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type or "application/octet-stream")
         self.send_header("Content-Length", str(len(body)))
+        # Revalidate every load: without it a browser (or a home-screen PWA)
+        # can keep running an old app.js long after a deploy.
+        self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         self.wfile.write(body)
 
@@ -254,6 +310,17 @@ class Handler(BaseHTTPRequestHandler):
                 "group_label": group_label,
                 "is_admin": is_admin,
             })
+            return
+        if self.path == "/api/board":
+            con = dataset.connect()
+            try:
+                role = self._session_role(con)
+            finally:
+                con.close()
+            if role is None:
+                self._send_json(401, {"error": "unauthorized"})
+                return
+            self._send_json(200, {"ok": True, **get_board(BOARD_CSV_URL)})
             return
         self._serve_static(self.path)
 

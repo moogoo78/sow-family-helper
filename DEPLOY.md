@@ -44,6 +44,9 @@ to match your own Traefik.
 ```ini
 SOW_HOST=your.host.example
 SOW_DB_FILE=./north7.sqlite
+# optional: home-screen notice + quick links (Google Sheet published as CSV,
+# see README)
+SOW_BOARD_CSV_URL=https://docs.google.com/spreadsheets/d/e/.../pub?gid=0&single=true&output=csv
 ```
 
 ```bash
