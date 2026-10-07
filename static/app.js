@@ -31,17 +31,18 @@
   const CONTACT_LABELS = {
     mobile: "手機",
     phone: "市話",
-    // Email 只有用管理密碼登入時才會出現在 payload 裡（見 server.py），
-    // 一般登入拿到的資料根本沒有這個欄位，這裡也就不用另外判斷。
+    // Email、電話、LINE 只有用管理密碼登入時才會出現在 payload 裡（見
+    // server.py），一般登入拿到的資料根本沒有這些欄位，這裡也就不用另外判斷。
     email: "Email",
+    phone_number: "電話",
     line_id: "LINE",
     address: "地址",
   };
-  const CONTACT_LINKS = { mobile: "tel", phone: "tel", email: "mailto" };
+  const CONTACT_LINKS = { mobile: "tel", phone: "tel", phone_number: "tel", email: "mailto" };
   // 用管理密碼登入才拿得到的欄位。這裡不做權限判斷——一般登入的 payload
   // 裡根本沒有這幾個 key（見 server.py），所以有值就代表是管理模式。值一樣
   // 要點過才顯示，並且標明這是別人看不到的東西。
-  const ADMIN_ONLY_FIELDS = new Set(["email"]);
+  const ADMIN_ONLY_FIELDS = new Set(["email", "phone_number", "line_id"]);
   // Non-staff section label per group -- 育成 has no kids, its plain
   // members are young adults, so it gets its own label instead of "小孩".
   const NON_STAFF_LABELS = { A: "小蟻", B: "小蜂", D: "小鹿", E: "小鷹", C: "育成大人" };
@@ -584,13 +585,16 @@
         const linkKind = CONTACT_LINKS[key];
         // 電話要把空白、括號編掉；email 本身就是合法的 URI，用
         // encodeURIComponent 反而會把 @ 變成 %40。
-        const href = linkKind === "mailto"
-          ? `mailto:${encodeURI(value)}`
-          : `${linkKind}:${encodeURIComponent(value)}`;
+        const href = !linkKind
+          ? ""
+          : linkKind === "mailto"
+            ? `mailto:${encodeURI(value)}`
+            : `${linkKind}:${encodeURIComponent(value)}`;
         if (ADMIN_ONLY_FIELDS.has(key)) {
           return `<div class="field-row"><span class="label">${label}</span><span>`
             + `<button type="button" class="reveal-btn" data-value="${escapeHtml(value)}"`
-            + ` data-href="${escapeHtml(href)}">顯示 ${label}</button>`
+            + (href ? ` data-href="${escapeHtml(href)}"` : "")
+            + `>顯示 ${label}</button>`
             + `<span class="admin-only-tag">僅管理者可見</span></span></div>`;
         }
         const display = linkKind

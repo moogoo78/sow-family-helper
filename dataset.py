@@ -52,7 +52,6 @@ def group_for_role(group_name, role):
 CONTACT_COLUMNS = {
     "mobile": "tel",
     "phone": "tel",
-    "line_id": None,
     "address": None,
 }
 
@@ -61,6 +60,8 @@ CONTACT_COLUMNS = {
 # the API payload the way a frontend-side "don't render this" would.
 ADMIN_CONTACT_COLUMNS = {
     "email": "mailto",
+    "phone_number": "tel",
+    "line_id": None,
 }
 
 
@@ -228,7 +229,8 @@ def family_active_in_year(fam_row, year):
 
 def build_members(con, is_admin=False):
     """The member bundle. `is_admin` adds the admin-only contact columns
-    (email) -- a normal session's payload never carries them."""
+    (email, phone_number, line_id) -- a normal session's payload never
+    carries them."""
     current_th_year = get_current_th_year(con)
     contact_cols = detect_contact_columns(con, is_admin)
     contact_select = "".join(f", p.{c}" for c in contact_cols)

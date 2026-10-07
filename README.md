@@ -35,8 +35,8 @@ python3 scripts/set_password.py --admin   # （選用）設定管理密碼
 python3 server.py                         # http://localhost:8000
 ```
 
-**兩組密碼、同一個登入欄位**：共用密碼是給全團的；管理密碼多解鎖 email
-（見下面的「管理密碼」）。沒設管理密碼就沒有人登得進管理模式。
+**兩組密碼、同一個登入欄位**：共用密碼是給全團的；管理密碼多解鎖 email、
+電話、LINE（見下面的「管理密碼」）。沒設管理密碼就沒有人登得進管理模式。
 
 需要 Python 3.8 以上，沒有其他相依套件。`HOST`／`PORT` 可以用環境變數換掉。
 
@@ -52,9 +52,10 @@ make down        # 停掉
 
 ## 管理密碼
 
-Email 只給管理密碼看。用共用密碼登入時，email **根本不會出現在 API 回應裡**
-（`dataset.ADMIN_CONTACT_COLUMNS`，連查都不會查），不是前端藏起來而已；用管理
-密碼登入才會多出「Email」那一列，點下去就是 `mailto:`。
+Email、電話（`phone_number`）、LINE（`line_id`）只給管理密碼看。用共用密碼登入
+時，這些欄位**根本不會出現在 API 回應裡**（`dataset.ADMIN_CONTACT_COLUMNS`，連查
+都不會查），不是前端藏起來而已；用管理密碼登入才會多出這幾列，點了才顯示，Email
+是 `mailto:`、電話是 `tel:`。
 
 登入欄位只有一個，密碼是哪一組由後端判斷。管理 session 只留 30 天（一般登入是
 400 天），改管理密碼也不會把全團登出——反過來，改共用密碼還是會換掉 session

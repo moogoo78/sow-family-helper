@@ -7,8 +7,8 @@ Usage:
 
 Two passwords, one login field. The shared one is what the whole 團 gets;
 the admin one additionally unlocks the contact details the address book
-keeps out of everyone else's payload (email). The admin password is
-optional -- with none set, nobody can log in as admin.
+keeps out of everyone else's payload (email, phone_number, line_id). The
+admin password is optional -- with none set, nobody can log in as admin.
 
 Stores a salted PBKDF2 hash (never the plaintext) in the `settings` table
 of north7.sqlite. Setting the shared password also rotates the
@@ -73,7 +73,7 @@ def main():
     parser.add_argument(
         "--admin",
         action="store_true",
-        help="set the admin password (unlocks email) instead of the shared one",
+        help="set the admin password (unlocks email, phone, LINE) instead of the shared one",
     )
     args = parser.parse_args()
 
