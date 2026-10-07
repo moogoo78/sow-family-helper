@@ -23,6 +23,7 @@ import hashlib
 import hmac
 import html
 import http.cookies
+import io
 import json
 import mimetypes
 import os
@@ -75,6 +76,7 @@ VERSIONED_RE = re.compile(r"^(?P<stem>[\w-]+)\.(?P<hash>[0-9a-f]{10})\.(?P<ext>j
 BOARD_CSV_URL = os.environ.get("SOW_BOARD_CSV_URL", "").strip()
 BOARD_CACHE_SECONDS = 300
 NOTICE_KINDS = ("公告", "notice")
+LINK_KINDS = ("survey", "drive")
 BOARD_FETCH_TIMEOUT = 5
 _board_cache = {"url": None, "at": 0.0, "board": {"notices": [], "links": []}}
 _board_lock = threading.Lock()
@@ -108,23 +110,25 @@ def versioned_name(name):
 
 
 def parse_board(text):
-    """Sheet rows `A,B,C` -> {"notices": [...], "links": [...]}.
+    """Sheet rows `類別,標題,URL 或 內文` -> {"notices": [...], "links": [...]}.
 
-    A row with text in B and an http(s) URL in C is a button, whatever A
-    says (the sheet uses A for its own labels like 按鈕3). A row whose A is
-    公告 / notice is notice text. Anything else -- a header row, blank rows,
-    a link that is not http(s) (javascript:, data:) -- is dropped; whoever
-    can edit the sheet would otherwise be able to run script here.
+    The first row is the sheet's header and is skipped. 類別 notice / 公告
+    makes a notice ({title, body}); any other row with an http(s) URL is a
+    button, its 類別 (survey, drive) picking the button's look. Rows that
+    are neither -- blank, or a link that is not http(s) (javascript:, data:)
+    -- are dropped; whoever can edit the sheet would otherwise be able to
+    run script here.
     """
     notices, links = [], []
-    for row in csv.reader(text.splitlines()):
-        kind, label, url = [(c or "").strip() for c in (row + ["", "", ""])[:3]]
-        if not label:
+    for row in list(csv.reader(io.StringIO(text)))[1:]:
+        kind, title, value = [(c or "").strip() for c in (row + ["", "", ""])[:3]]
+        kind = kind.lower()
+        if not title:
             continue
-        if kind.lower() in NOTICE_KINDS:
-            notices.append(label)
-        elif url.lower().startswith(("https://", "http://")):
-            links.append({"label": label, "url": url})
+        if kind in NOTICE_KINDS:
+            notices.append({"title": title, "body": value})
+        elif value.lower().startswith(("https://", "http://")):
+            links.append({"label": title, "url": value, "kind": kind if kind in LINK_KINDS else "link"})
     return {"notices": notices, "links": links}
 
 

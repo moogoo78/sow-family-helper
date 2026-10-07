@@ -21,6 +21,11 @@
   --lead-text: #7a6230;
   --former-card-bg: #f1efec;
   --former-border: #d8d0c7;
+  /* 快速連結：問卷（survey）與雲端資料夾（drive） */
+  --survey-bg: #e0ecfb;
+  --survey-text: #1f4f8f;
+  --drive-bg: #fdf0d5;
+  --drive-text: #84580e;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -46,6 +51,10 @@
     --lead-text: #d8c18a;
     --former-card-bg: #262320;
     --former-border: #46403a;
+    --survey-bg: #1b2a40;
+    --survey-text: #9cc3f5;
+    --drive-bg: #33280f;
+    --drive-text: #f0c873;
   }
 }
 
@@ -203,22 +212,38 @@ html, body {
 
 /* 首頁的公告與快速連結（Google 試算表） */
 .board-notice {
+  position: relative;
   margin: 8px 0;
-  padding: 12px 16px;
   background: var(--pill-bg);
   border: 1px solid var(--border);
   border-left: 4px solid var(--accent);
   border-radius: 14px;
 }
 
-.board-notice p {
-  margin: 0;
+.board-notice summary {
+  padding: 12px 44px 12px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notice-body {
+  padding: 0 16px 12px;
   white-space: pre-line;
   line-height: 1.5;
 }
 
-.board-notice p + p {
-  margin-top: 6px;
+.notice-hide {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .quick-links {
@@ -236,6 +261,16 @@ html, body {
   font-size: 0.95rem;
   font-weight: 600;
   text-decoration: none;
+}
+
+.quick-link-survey {
+  background: var(--survey-bg);
+  color: var(--survey-text);
+}
+
+.quick-link-drive {
+  background: var(--drive-bg);
+  color: var(--drive-text);
 }
 
 .group-card {

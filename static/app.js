@@ -115,15 +115,55 @@
     if (board.notices.length || board.links.length) renderHome();
   }
 
+  // 試算表的「類別」決定按鈕的顏色和 emoji；沒列在這裡的就用一般樣式。
+  const LINK_ICONS = { survey: "📝", drive: "📁", link: "🔗" };
+  const HIDDEN_NOTICES_KEY = "sow_hidden_notices";
+
+  // 按 × 收起的公告記在這台裝置上。標題或內文一改就是新的 key，會再出現。
+  function noticeKey(n) {
+    return `${n.title}\n${n.body}`;
+  }
+
+  function hiddenNotices() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(HIDDEN_NOTICES_KEY) || "[]"));
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function hideNotice(key) {
+    // 只留目前還在試算表上的，舊公告的 key 不會一直累積。
+    const current = new Set(board.notices.map(noticeKey));
+    const hidden = [...hiddenNotices(), key].filter((k) => current.has(k));
+    try {
+      localStorage.setItem(HIDDEN_NOTICES_KEY, JSON.stringify(hidden));
+    } catch (e) {
+      // 存不了（無痕模式）就只在這次收起
+    }
+  }
+
   function boardHtml() {
+    const hidden = hiddenNotices();
     const notices = board.notices
-      .map((n) => `<p>${escapeHtml(n)}</p>`)
+      .filter((n) => !hidden.has(noticeKey(n)))
+      .map((n) => `
+        <div class="board-notice" data-key="${escapeHtml(noticeKey(n))}">
+          <details>
+            <summary>📢 ${escapeHtml(n.title)}</summary>
+            ${n.body ? `<div class="notice-body">${escapeHtml(n.body)}</div>` : ""}
+          </details>
+          <button type="button" class="notice-hide" aria-label="隱藏這則公告">×</button>
+        </div>`)
       .join("");
     const links = board.links
-      .map((l) => `<a class="quick-link" href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.label)}</a>`)
+      .map((l) => {
+        const kind = LINK_ICONS[l.kind] ? l.kind : "link";
+        return `<a class="quick-link quick-link-${kind}" href="${escapeHtml(l.url)}" target="_blank" rel="noopener">`
+          + `${LINK_ICONS[kind]} ${escapeHtml(l.label)}</a>`;
+      })
       .join("");
-    return (notices ? `<div class="board-notice">${notices}</div>` : "")
-      + (links ? `<div class="quick-links">${links}</div>` : "");
+    return notices + (links ? `<div class="quick-links">${links}</div>` : "");
   }
 
   loginForm.addEventListener("submit", async (e) => {
@@ -553,6 +593,13 @@
   }
 
   resultsEl.addEventListener("click", (e) => {
+    const hideBtn = e.target.closest(".notice-hide");
+    if (hideBtn) {
+      const notice = hideBtn.closest(".board-notice");
+      hideNotice(notice.dataset.key);
+      notice.remove();
+      return;
+    }
     const card = e.target.closest(".group-card");
     if (card) {
       if (card.dataset.view === "trainings") trainingList = true;
