@@ -118,77 +118,20 @@
 
   // 試算表的「類別」決定按鈕的顏色和 emoji；沒列在這裡的就用一般樣式。
   const LINK_ICONS = { survey: "📝", drive: "📁", link: "🔗" };
-  const HIDDEN_NOTICES_KEY = "sow_hidden_notices";
-  const HIDDEN_LINKS_KEY = "sow_hidden_links";
+  // 搜尋列上面兩張小卡片，點一張展開那一區（再點收起）："notices"、"links" 或 null。
+  let boardOpen = null;
 
-  // 按 × 收起的公告記在這台裝置上。標題或內文一改就是新的 key，會再出現。
-  function noticeKey(n) {
-    return `${n.title}\n${n.body}`;
-  }
-
-  function hiddenNotices() {
-    try {
-      return new Set(JSON.parse(localStorage.getItem(HIDDEN_NOTICES_KEY) || "[]"));
-    } catch (e) {
-      return new Set();
-    }
-  }
-
-  function hideNotice(key) {
-    // 只留目前還在試算表上的，舊公告的 key 不會一直累積。
-    const current = new Set(board.notices.map(noticeKey));
-    const hidden = [...hiddenNotices(), key].filter((k) => current.has(k));
-    try {
-      localStorage.setItem(HIDDEN_NOTICES_KEY, JSON.stringify(hidden));
-    } catch (e) {
-      // 存不了（無痕模式）就只在這次收起
-    }
-  }
-
-  function showHiddenNotices() {
-    try {
-      localStorage.removeItem(HIDDEN_NOTICES_KEY);
-    } catch (e) {
-      // 存不了的話本來就沒有記住任何收起的公告
-    }
-  }
-
-  // 按鈕區整塊收起，記的是當時那組按鈕；試算表的按鈕一改就會再出現。
-  function linksKey() {
-    return JSON.stringify(board.links.map((l) => [l.label, l.url]));
-  }
-
-  function linksHidden() {
-    try {
-      return localStorage.getItem(HIDDEN_LINKS_KEY) === linksKey();
-    } catch (e) {
-      return false;
-    }
-  }
-
-  function setLinksHidden(hide) {
-    try {
-      if (hide) localStorage.setItem(HIDDEN_LINKS_KEY, linksKey());
-      else localStorage.removeItem(HIDDEN_LINKS_KEY);
-    } catch (e) {
-      // 存不了（無痕模式）就不記
-    }
-  }
-
-  function boardHtml() {
-    const hidden = hiddenNotices();
-    const hiddenCount = board.notices.filter((n) => hidden.has(noticeKey(n))).length;
-    const notices = board.notices
-      .filter((n) => !hidden.has(noticeKey(n)))
+  function noticesHtml() {
+    return board.notices
       .map((n) => `
-        <div class="board-notice" data-key="${escapeHtml(noticeKey(n))}">
-          <details>
-            <summary>📢 ${escapeHtml(n.title)}</summary>
-            ${n.body ? `<div class="notice-body">${escapeHtml(n.body)}</div>` : ""}
-          </details>
-          <button type="button" class="notice-hide" aria-label="隱藏這則公告">×</button>
+        <div class="board-notice">
+          <div class="notice-title">${escapeHtml(n.title)}</div>
+          ${n.body ? `<div class="notice-body">${escapeHtml(n.body)}</div>` : ""}
         </div>`)
       .join("");
+  }
+
+  function linksHtml() {
     const links = board.links
       .map((l) => {
         const kind = LINK_ICONS[l.kind] ? l.kind : "link";
@@ -196,18 +139,27 @@
           + `${LINK_ICONS[kind]} ${escapeHtml(l.label)}</a>`;
       })
       .join("");
-    // 有收起的公告／按鈕才出現，點了放回來。
-    const restoreNotices = hiddenCount
-      ? `<button type="button" class="board-restore" data-restore="notices">顯示已隱藏的公告（${hiddenCount}）</button>`
-      : "";
-    let linksBlock = "";
-    if (links && linksHidden()) {
-      linksBlock = `<button type="button" class="board-restore" data-restore="links">顯示快速連結（${board.links.length}）</button>`;
-    } else if (links) {
-      linksBlock = `<div class="quick-links">${links}`
-        + `<button type="button" class="links-hide" aria-label="隱藏快速連結">×</button></div>`;
-    }
-    return notices + restoreNotices + linksBlock;
+    return `<div class="quick-links">${links}</div>`;
+  }
+
+  function boardHtml() {
+    const tabs = [
+      { key: "notices", label: "📢 公告", count: board.notices.length },
+      { key: "links", label: "🔗 連結", count: board.links.length },
+    ].filter((t) => t.count);
+    if (!tabs.length) return "";
+    const cards = tabs
+      .map((t) => `
+        <button type="button" class="board-tab board-tab-${t.key}${boardOpen === t.key ? " open" : ""}"
+                data-tab="${t.key}" aria-expanded="${boardOpen === t.key}">
+          <span>${t.label}</span><span class="board-count">${t.count}</span>
+        </button>`)
+      .join("");
+    let panel = "";
+    if (boardOpen === "notices" && board.notices.length) panel = noticesHtml();
+    if (boardOpen === "links" && board.links.length) panel = linksHtml();
+    return `<div class="board-tabs">${cards}</div>`
+      + (panel ? `<div class="board-panel">${panel}</div>` : "");
   }
 
   // 公告與按鈕放在搜尋列上面，不管在哪個畫面都看得到。
@@ -216,21 +168,9 @@
   }
 
   boardEl.addEventListener("click", (e) => {
-    const hideBtn = e.target.closest(".notice-hide");
-    if (hideBtn) {
-      hideNotice(hideBtn.closest(".board-notice").dataset.key);
-      renderBoard();
-      return;
-    }
-    if (e.target.closest(".links-hide")) {
-      setLinksHidden(true);
-      renderBoard();
-      return;
-    }
-    const restore = e.target.closest(".board-restore");
-    if (restore) {
-      if (restore.dataset.restore === "links") setLinksHidden(false);
-      else showHiddenNotices();
+    const tab = e.target.closest(".board-tab");
+    if (tab) {
+      boardOpen = boardOpen === tab.dataset.tab ? null : tab.dataset.tab;
       renderBoard();
     }
   });
